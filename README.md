@@ -106,10 +106,10 @@ All operations are secured via **JWT token-based authentication** with a **two-f
 
 | Role | Permissions |
 |---|---|
-| **SUPER_ADMIN** | Create companies, delete companies, create COO users, view all companies & COOs |
-| **COO** | Create companies (cannot delete), onboard/create HR users, view companies & HRs |
+| **SUPER_ADMIN** | Create companies, delete companies, create COO users (with mandatory company assignment), view all companies & COOs |
+| **COO** | Belongs to a specific company. View companies (read-only), onboard HR users (automatically assigned to COO's company), view HRs |
 | **HR** | Post jobs (technical/non-technical) with skillsets and optional salary range, trigger AI resume matching, manage application status (APPLIED → SHORTLISTED → INTERVIEWING → SELECTED/REJECTED), view selected candidate full details |
-| **CANDIDATE** | Register self, **login directly without OTP**, create profile (choose TECHNICAL or NON_TECHNICAL category, set optional expected salary range), browse matching jobs, apply to jobs, view applications |
+| **CANDIDATE** | Register self, **login directly without OTP**, create profile (choose TECHNICAL or NON_TECHNICAL category, upload resume PDF, set optional expected salary range), browse matching jobs, apply to jobs, view applications |
 
 ---
 
@@ -162,16 +162,15 @@ Step 3: Access Protected APIs
 | `POST` | `/api/super-admin/companies` | Create a company | `{ "name", "address", "website" }` |
 | `DELETE` | `/api/super-admin/companies/{id}` | Delete a company | - |
 | `GET` | `/api/super-admin/companies` | List all companies | - |
-| `POST` | `/api/super-admin/coo` | Create a COO user | `{ "email", "password", "fullName", "mobileNumber" }` |
+| `POST` | `/api/super-admin/coo` | Create a COO user (with mandatory company) | `{ "email", "password", "fullName", "mobileNumber", "companyId" }` |
 | `GET` | `/api/super-admin/coo` | List all COOs | - |
 
 ### 🟠 COO (`COO` role required)
 
 | Method | Endpoint | Description | Request Body |
 |---|---|---|---|
-| `POST` | `/api/coo/companies` | Enlist a company | `{ "name", "address", "website" }` |
-| `GET` | `/api/coo/companies` | List all companies | - |
-| `POST` | `/api/coo/hr` | Onboard an HR user | `{ "email", "password", "fullName", "mobileNumber", "companyId" }` |
+| `GET` | `/api/coo/companies` | List all companies (read-only) | - |
+| `POST` | `/api/coo/hr` | Onboard HR (auto-assigned to COO's company) | `{ "email", "password", "fullName", "mobileNumber" }` |
 | `GET` | `/api/coo/hr` | List all HR users | - |
 
 ### 🟡 HR (`HR` role required)
@@ -609,7 +608,7 @@ curl -X POST http://localhost:8080/api/super-admin/companies \
   }'
 ```
 
-### 4. Create a COO (Super Admin)
+### 4. Create a COO with Company (Super Admin)
 
 ```bash
 curl -X POST http://localhost:8080/api/super-admin/coo \
@@ -620,11 +619,13 @@ curl -X POST http://localhost:8080/api/super-admin/coo \
     "password": "Coo@123",
     "fullName": "John COO",
     "mobileNumber": "+1234567891",
-    "role": "COO"
+    "companyId": "<company-uuid>"
   }'
 ```
 
-### 5. Onboard an HR (COO)
+> **Note:** `companyId` is **mandatory** when creating a COO. The COO will be permanently assigned to this company.
+
+### 5. Onboard an HR (COO — auto-assigned to COO's company)
 
 ```bash
 curl -X POST http://localhost:8080/api/coo/hr \
@@ -634,10 +635,11 @@ curl -X POST http://localhost:8080/api/coo/hr \
     "email": "hr@techcorp.com",
     "password": "Hr@123",
     "fullName": "Jane HR",
-    "mobileNumber": "+1234567892",
-    "companyId": "<company-uuid>"
+    "mobileNumber": "+1234567892"
   }'
 ```
+
+> **Note:** No `companyId` needed — the HR is automatically assigned to the authenticated COO's company.
 
 ### 6. Post a Job (HR) — Salary Range Optional
 

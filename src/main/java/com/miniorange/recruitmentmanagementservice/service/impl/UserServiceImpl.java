@@ -1,5 +1,6 @@
 package com.miniorange.recruitmentmanagementservice.service.impl;
 
+import com.miniorange.recruitmentmanagementservice.dto.request.CreateCooRequest;
 import com.miniorange.recruitmentmanagementservice.dto.request.CreateHrRequest;
 import com.miniorange.recruitmentmanagementservice.dto.request.RegisterUserRequest;
 import com.miniorange.recruitmentmanagementservice.dto.response.UserResponse;
@@ -69,10 +70,13 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public UserResponse createCoo(RegisterUserRequest request) {
+    public UserResponse createCoo(CreateCooRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new BadRequestException("Email already registered: " + request.getEmail());
         }
+
+        Company company = companyRepository.findById(request.getCompanyId())
+                .orElseThrow(() -> new ResourceNotFoundException("Company not found with id: " + request.getCompanyId()));
 
         User coo = User.builder()
                 .email(request.getEmail())
@@ -80,11 +84,40 @@ public class UserServiceImpl implements UserService {
                 .fullName(request.getFullName())
                 .mobileNumber(request.getMobileNumber())
                 .role(Role.COO)
+                .company(company)
                 .enabled(true)
                 .build();
 
         coo = userRepository.save(coo);
         return mapToUserResponse(coo);
+    }
+
+    @Override
+    public UserResponse createHrUnderCoo(CreateHrRequest request, String cooEmail) {
+        if (userRepository.existsByEmail(request.getEmail())) {
+            throw new BadRequestException("Email already registered: " + request.getEmail());
+        }
+
+        // Get the COO user to find their company
+        User cooUser = userRepository.findByEmail(cooEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("COO user not found"));
+
+        if (cooUser.getCompany() == null) {
+            throw new BadRequestException("COO is not assigned to any company. Cannot create HR.");
+        }
+
+        User hr = User.builder()
+                .email(request.getEmail())
+                .password(passwordEncoder.encode(request.getPassword()))
+                .fullName(request.getFullName())
+                .mobileNumber(request.getMobileNumber())
+                .role(Role.HR)
+                .company(cooUser.getCompany())
+                .enabled(true)
+                .build();
+
+        hr = userRepository.save(hr);
+        return mapToUserResponse(hr);
     }
 
     @Override
@@ -111,4 +144,3 @@ public class UserServiceImpl implements UserService {
                 .build();
     }
 }
-

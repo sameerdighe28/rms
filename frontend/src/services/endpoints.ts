@@ -13,13 +13,12 @@ export const superAdminApi = {
   createCompany: (data: T.CreateCompanyRequest) => api.post<T.CompanyResponse>('/super-admin/companies', data),
   deleteCompany: (id: string) => api.delete<T.MessageResponse>(`/super-admin/companies/${id}`),
   getCompanies: () => api.get<T.CompanyResponse[]>('/super-admin/companies'),
-  createCoo: (data: T.RegisterUserRequest) => api.post<T.UserResponse>('/super-admin/coo', data),
+  createCoo: (data: T.CreateCooRequest) => api.post<T.UserResponse>('/super-admin/coo', data),
   getCoos: () => api.get<T.UserResponse[]>('/super-admin/coo'),
 };
 
 // ── COO ──
 export const cooApi = {
-  createCompany: (data: T.CreateCompanyRequest) => api.post<T.CompanyResponse>('/coo/companies', data),
   getCompanies: () => api.get<T.CompanyResponse[]>('/coo/companies'),
   createHr: (data: T.CreateHrRequest) => api.post<T.UserResponse>('/coo/hr', data),
   getHrs: () => api.get<T.UserResponse[]>('/coo/hr'),

@@ -45,12 +45,20 @@ export interface CompanyResponse {
 }
 
 // ── User ──
-export interface CreateHrRequest {
+export interface CreateCooRequest {
   email: string;
   password: string;
   fullName: string;
   mobileNumber: string;
   companyId: string;
+}
+
+export interface CreateHrRequest {
+  email: string;
+  password: string;
+  fullName: string;
+  mobileNumber: string;
+  companyId?: string;
 }
 
 export interface UserResponse {

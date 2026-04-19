@@ -8,7 +8,7 @@ import lombok.Data;
 import java.util.UUID;
 
 @Data
-public class CreateHrRequest {
+public class CreateCooRequest {
 
     @NotBlank(message = "Email is required")
     @Email(message = "Invalid email format")
@@ -23,6 +23,7 @@ public class CreateHrRequest {
     @NotBlank(message = "Mobile number is required")
     private String mobileNumber;
 
-    // Optional — used by Super Admin direct HR creation; ignored when COO creates HR (auto-resolved)
+    @NotNull(message = "Company ID is required")
     private UUID companyId;
 }
+

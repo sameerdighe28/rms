@@ -1,6 +1,5 @@
 package com.miniorange.recruitmentmanagementservice.controller;
 
-import com.miniorange.recruitmentmanagementservice.dto.request.CreateCompanyRequest;
 import com.miniorange.recruitmentmanagementservice.dto.request.CreateHrRequest;
 import com.miniorange.recruitmentmanagementservice.dto.response.CompanyResponse;
 import com.miniorange.recruitmentmanagementservice.dto.response.UserResponse;
@@ -10,6 +9,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -24,16 +25,7 @@ public class CooController {
     private final UserService userService;
 
     /**
-     * COO can enlist (create) a company but cannot delete
-     */
-    @PostMapping("/companies")
-    public ResponseEntity<CompanyResponse> createCompany(@Valid @RequestBody CreateCompanyRequest request) {
-        CompanyResponse response = companyService.createCompany(request);
-        return ResponseEntity.ok(response);
-    }
-
-    /**
-     * List all companies
+     * List all companies (read-only for COO)
      */
     @GetMapping("/companies")
     public ResponseEntity<List<CompanyResponse>> getAllCompanies() {
@@ -41,11 +33,14 @@ public class CooController {
     }
 
     /**
-     * COO can onboard/create HR users
+     * COO onboards HR — HR is automatically assigned to the COO's company.
+     * No companyId needed in request body; it's resolved from the authenticated COO.
      */
     @PostMapping("/hr")
-    public ResponseEntity<UserResponse> createHr(@Valid @RequestBody CreateHrRequest request) {
-        UserResponse response = userService.createHr(request);
+    public ResponseEntity<UserResponse> createHr(
+            @Valid @RequestBody CreateHrRequest request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UserResponse response = userService.createHrUnderCoo(request, userDetails.getUsername());
         return ResponseEntity.ok(response);
     }
 
@@ -57,4 +52,3 @@ public class CooController {
         return ResponseEntity.ok(userService.getHrList());
     }
 }
-

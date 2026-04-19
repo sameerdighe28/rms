@@ -1,21 +1,17 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { cooApi } from '../../services/endpoints';
-import type { UserResponse, CompanyResponse } from '../../types';
+import type { UserResponse } from '../../types';
 import toast from 'react-hot-toast';
 
 export default function CooHrsPage() {
   const [hrs, setHrs] = useState<UserResponse[]>([]);
-  const [companies, setCompanies] = useState<CompanyResponse[]>([]);
   const [showModal, setShowModal] = useState(false);
-  const [form, setForm] = useState({ email: '', password: '', fullName: '', mobileNumber: '', companyId: '' });
+  const [form, setForm] = useState({ email: '', password: '', fullName: '', mobileNumber: '' });
   const [loading, setLoading] = useState(false);
 
   const load = async () => {
-    try {
-      const [hRes, cRes] = await Promise.all([cooApi.getHrs(), cooApi.getCompanies()]);
-      setHrs(hRes.data);
-      setCompanies(cRes.data);
-    } catch { toast.error('Failed to load data'); }
+    try { setHrs((await cooApi.getHrs()).data); }
+    catch { toast.error('Failed to load HR users'); }
   };
 
   useEffect(() => { load(); }, []);
@@ -25,9 +21,9 @@ export default function CooHrsPage() {
     setLoading(true);
     try {
       await cooApi.createHr(form);
-      toast.success('HR created');
+      toast.success('HR created and assigned to your company');
       setShowModal(false);
-      setForm({ email: '', password: '', fullName: '', mobileNumber: '', companyId: '' });
+      setForm({ email: '', password: '', fullName: '', mobileNumber: '' });
       load();
     } catch (err: any) { toast.error(err.response?.data?.message || 'Failed'); }
     finally { setLoading(false); }
@@ -60,6 +56,7 @@ export default function CooHrsPage() {
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
             <h2 className="modal-title">Onboard HR</h2>
+            <p className="text-muted mb-16">HR will be automatically assigned to your company.</p>
             <form onSubmit={handleCreate}>
               <div className="form-group">
                 <label>Full Name *</label>
@@ -81,14 +78,6 @@ export default function CooHrsPage() {
                 <input className="form-control" value={form.mobileNumber}
                   onChange={e => setForm(f => ({ ...f, mobileNumber: e.target.value }))} required />
               </div>
-              <div className="form-group">
-                <label>Company *</label>
-                <select className="form-control" value={form.companyId}
-                  onChange={e => setForm(f => ({ ...f, companyId: e.target.value }))} required>
-                  <option value="">Select a company</option>
-                  {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-              </div>
               <div className="modal-actions">
                 <button type="button" className="btn btn-outline" onClick={() => setShowModal(false)}>Cancel</button>
                 <button className="btn btn-primary" disabled={loading}>{loading ? 'Creating...' : 'Create'}</button>
@@ -100,4 +89,3 @@ export default function CooHrsPage() {
     </>
   );
 }
-

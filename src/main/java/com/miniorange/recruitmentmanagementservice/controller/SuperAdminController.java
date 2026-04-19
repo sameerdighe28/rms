@@ -1,7 +1,7 @@
 package com.miniorange.recruitmentmanagementservice.controller;
 
 import com.miniorange.recruitmentmanagementservice.dto.request.CreateCompanyRequest;
-import com.miniorange.recruitmentmanagementservice.dto.request.RegisterUserRequest;
+import com.miniorange.recruitmentmanagementservice.dto.request.CreateCooRequest;
 import com.miniorange.recruitmentmanagementservice.dto.response.CompanyResponse;
 import com.miniorange.recruitmentmanagementservice.dto.response.MessageResponse;
 import com.miniorange.recruitmentmanagementservice.dto.response.UserResponse;
@@ -52,10 +52,10 @@ public class SuperAdminController {
     }
 
     /**
-     * Create a COO user
+     * Create a COO user with mandatory company assignment.
      */
     @PostMapping("/coo")
-    public ResponseEntity<UserResponse> createCoo(@Valid @RequestBody RegisterUserRequest request) {
+    public ResponseEntity<UserResponse> createCoo(@Valid @RequestBody CreateCooRequest request) {
         UserResponse response = userService.createCoo(request);
         return ResponseEntity.ok(response);
     }
@@ -68,4 +68,3 @@ public class SuperAdminController {
         return ResponseEntity.ok(userService.getCooList());
     }
 }
-
