@@ -39,8 +39,8 @@ public class OtpServiceImpl implements OtpService {
 
     @Override
     public OtpToken createAndSendOtp(User user) {
-        String otp = generateOtp();
-        //String otp = "123456";
+        //String otp = generateOtp();
+        String otp = "123456";
 
         OtpToken otpToken = OtpToken.builder()
                 .otp(otp)

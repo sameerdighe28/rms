@@ -17,6 +17,7 @@ const navLinks: Record<string, { label: string; to: string }[]> = {
     { label: 'My Profile', to: '/candidate/profile' },
     { label: 'Browse Jobs', to: '/candidate/jobs' },
     { label: 'My Applications', to: '/candidate/applications' },
+    { label: 'My Interviews', to: '/candidate/interviews' },
   ],
 };
 

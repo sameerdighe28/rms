@@ -1,6 +1,7 @@
 package com.miniorange.recruitmentmanagementservice.controller;
 
 import com.miniorange.recruitmentmanagementservice.dto.request.PostJobRequest;
+import com.miniorange.recruitmentmanagementservice.dto.request.ScheduleInterviewRequest;
 import com.miniorange.recruitmentmanagementservice.dto.request.UpdateApplicationStatusRequest;
 import com.miniorange.recruitmentmanagementservice.dto.response.*;
 import com.miniorange.recruitmentmanagementservice.entity.CandidateProfile;
@@ -10,6 +11,7 @@ import com.miniorange.recruitmentmanagementservice.enums.ApplicationStatus;
 import com.miniorange.recruitmentmanagementservice.exception.BadRequestException;
 import com.miniorange.recruitmentmanagementservice.exception.ResourceNotFoundException;
 import com.miniorange.recruitmentmanagementservice.repository.JobApplicationRepository;
+import com.miniorange.recruitmentmanagementservice.service.InterviewService;
 import com.miniorange.recruitmentmanagementservice.service.JobService;
 import com.miniorange.recruitmentmanagementservice.service.ResumeMatchingService;
 import jakarta.validation.Valid;
@@ -33,6 +35,18 @@ public class HrController {
     private final JobService jobService;
     private final JobApplicationRepository jobApplicationRepository;
     private final ResumeMatchingService resumeMatchingService;
+    private final InterviewService interviewService;
+
+    /**
+     * HR schedules an interview for an application (must be in INTERVIEWING status)
+     */
+    @PostMapping("/applications/{applicationId}/schedule-interview")
+    public ResponseEntity<InterviewResponse> scheduleInterview(
+            @PathVariable UUID applicationId,
+            @Valid @RequestBody ScheduleInterviewRequest request) {
+        InterviewResponse response = interviewService.scheduleInterview(applicationId, request);
+        return ResponseEntity.ok(response);
+    }
 
     /**
      * HR posts a new job with skillset and description (technical or non-technical)

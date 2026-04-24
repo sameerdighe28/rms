@@ -10,6 +10,7 @@ export default function HrJobsPage() {
   const [form, setForm] = useState({
     title: '', description: '', skillset: '', category: 'TECHNICAL' as const,
     location: '', salaryMin: '', salaryMax: '',
+    requiredQualifications: '', preferredQualifications: '',
   });
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -38,12 +39,14 @@ export default function HrJobsPage() {
       await hrApi.postJob({
         title: form.title, description: form.description,
         skillset: form.skillset.split(',').map(s => s.trim()).filter(Boolean),
+        requiredQualifications: form.requiredQualifications.split(',').map(s => s.trim()).filter(Boolean),
+        preferredQualifications: form.preferredQualifications.split(',').map(s => s.trim()).filter(Boolean),
         category: form.category, location: form.location || undefined,
         salaryMin: salaryMin, salaryMax: salaryMax,
       });
       toast.success('Job posted');
       setShowModal(false);
-      setForm({ title: '', description: '', skillset: '', category: 'TECHNICAL', location: '', salaryMin: '', salaryMax: '' });
+      setForm({ title: '', description: '', skillset: '', category: 'TECHNICAL', location: '', salaryMin: '', salaryMax: '', requiredQualifications: '', preferredQualifications: '' });
       load();
     } catch (err: any) { toast.error(err.response?.data?.message || 'Failed'); }
     finally { setLoading(false); }
@@ -72,6 +75,22 @@ export default function HrJobsPage() {
                 {job.skillset?.map(s => <span className="tag" key={s}>{s}</span>)}
               </span>
             </div>
+            {job.requiredQualifications?.length > 0 && (
+              <div style={{ marginBottom: 8 }}>
+                <strong>Required Qualifications: </strong>
+                <span className="tags" style={{ display: 'inline-flex' }}>
+                  {job.requiredQualifications.map(q => <span className="tag" key={q}>{q}</span>)}
+                </span>
+              </div>
+            )}
+            {job.preferredQualifications?.length > 0 && (
+              <div style={{ marginBottom: 8 }}>
+                <strong>Preferred Qualifications: </strong>
+                <span className="tags" style={{ display: 'inline-flex' }}>
+                  {job.preferredQualifications.map(q => <span className="tag" key={q}>{q}</span>)}
+                </span>
+              </div>
+            )}
             {job.location && <p><strong>Location:</strong> {job.location}</p>}
             {job.salaryRange && <p><strong>Salary:</strong> {job.salaryRange}</p>}
             <p className="text-muted" style={{ fontSize: '.85rem' }}>Company: {job.companyName}</p>
@@ -111,6 +130,18 @@ export default function HrJobsPage() {
                   onChange={e => setForm(f => ({ ...f, skillset: e.target.value }))}
                   placeholder="Java, Spring Boot, PostgreSQL" />
               </div>
+              <div className="form-group">
+                <label>Required Qualifications (comma-separated)</label>
+                <textarea className="form-control" rows={2} value={form.requiredQualifications}
+                  onChange={e => setForm(f => ({ ...f, requiredQualifications: e.target.value }))}
+                  placeholder="Bachelor's in CS, 3+ years experience, Strong Java skills" />
+              </div>
+              <div className="form-group">
+                <label>Preferred Qualifications (comma-separated)</label>
+                <textarea className="form-control" rows={2} value={form.preferredQualifications}
+                  onChange={e => setForm(f => ({ ...f, preferredQualifications: e.target.value }))}
+                  placeholder="Master's degree, Cloud experience, Leadership skills" />
+              </div>
               <div className="form-row">
                 <div className="form-group">
                   <label>Category *</label>
@@ -149,4 +180,3 @@ export default function HrJobsPage() {
     </>
   );
 }
-

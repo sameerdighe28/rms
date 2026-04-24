@@ -46,6 +46,22 @@ export default function CandidateJobsPage() {
                 {job.skillset?.map(s => <span className="tag" key={s}>{s}</span>)}
               </span>
             </div>
+            {job.requiredQualifications?.length > 0 && (
+              <div style={{ marginBottom: 8 }}>
+                <strong>Required Qualifications: </strong>
+                <span className="tags" style={{ display: 'inline-flex', flexWrap: 'wrap' }}>
+                  {job.requiredQualifications.map(q => <span className="tag" key={q}>{q}</span>)}
+                </span>
+              </div>
+            )}
+            {job.preferredQualifications?.length > 0 && (
+              <div style={{ marginBottom: 8 }}>
+                <strong>Preferred Qualifications: </strong>
+                <span className="tags" style={{ display: 'inline-flex', flexWrap: 'wrap' }}>
+                  {job.preferredQualifications.map(q => <span className="tag" key={q}>{q}</span>)}
+                </span>
+              </div>
+            )}
             {job.location && <p><strong>Location:</strong> {job.location}</p>}
             {job.salaryRange && <p><strong>Salary:</strong> {job.salaryRange}</p>}
             <p className="text-muted" style={{ fontSize: '.85rem' }}>

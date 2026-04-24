@@ -32,6 +32,16 @@ public class Job {
     @Column(name = "skill")
     private List<String> skillset;
 
+    @ElementCollection
+    @CollectionTable(name = "job_required_qualifications", joinColumns = @JoinColumn(name = "job_id"))
+    @Column(name = "qualification")
+    private List<String> requiredQualifications;
+
+    @ElementCollection
+    @CollectionTable(name = "job_preferred_qualifications", joinColumns = @JoinColumn(name = "job_id"))
+    @Column(name = "qualification")
+    private List<String> preferredQualifications;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private JobCategory category;
@@ -53,4 +63,3 @@ public class Job {
     @CreationTimestamp
     private LocalDateTime createdAt;
 }
-

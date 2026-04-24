@@ -1,10 +1,11 @@
 package com.miniorange.recruitmentmanagementservice.controller;
 
 import com.miniorange.recruitmentmanagementservice.dto.request.CandidateProfileRequest;
-import com.miniorange.recruitmentmanagementservice.dto.response.CandidateProfileResponse;
-import com.miniorange.recruitmentmanagementservice.dto.response.JobApplicationResponse;
-import com.miniorange.recruitmentmanagementservice.dto.response.JobResponse;
+import com.miniorange.recruitmentmanagementservice.dto.request.MockTestSubmitRequest;
+import com.miniorange.recruitmentmanagementservice.dto.response.*;
 import com.miniorange.recruitmentmanagementservice.service.CandidateService;
+import com.miniorange.recruitmentmanagementservice.service.InterviewService;
+import com.miniorange.recruitmentmanagementservice.service.MockTestService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
@@ -25,6 +26,8 @@ import java.util.UUID;
 public class CandidateController {
 
     private final CandidateService candidateService;
+    private final InterviewService interviewService;
+    private final MockTestService mockTestService;
 
     /**
      * Candidate creates profile with resume PDF upload (multipart/form-data).
@@ -90,5 +93,64 @@ public class CandidateController {
             @AuthenticationPrincipal UserDetails userDetails) {
         List<JobApplicationResponse> applications = candidateService.getMyApplications(userDetails.getUsername());
         return ResponseEntity.ok(applications);
+    }
+
+    // ── Interview Endpoints ──
+
+    /**
+     * Get own interviews
+     */
+    @GetMapping("/interviews")
+    public ResponseEntity<List<InterviewResponse>> getMyInterviews(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        List<InterviewResponse> interviews = interviewService.getInterviewsByCandidate(userDetails.getUsername());
+        return ResponseEntity.ok(interviews);
+    }
+
+    /**
+     * Postpone an interview
+     */
+    @PutMapping("/interviews/{interviewId}/postpone")
+    public ResponseEntity<InterviewResponse> postponeInterview(
+            @PathVariable UUID interviewId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        InterviewResponse response = interviewService.postponeInterview(interviewId, userDetails.getUsername());
+        return ResponseEntity.ok(response);
+    }
+
+    // ── Mock Test Endpoints ──
+
+    /**
+     * Start a mock test for an application
+     */
+    @PostMapping("/applications/{applicationId}/mock-test/start")
+    public ResponseEntity<MockTestStartResponse> startMockTest(
+            @PathVariable UUID applicationId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        MockTestStartResponse response = mockTestService.startTest(applicationId, userDetails.getUsername());
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Submit a mock test
+     */
+    @PostMapping("/mock-test/{attemptId}/submit")
+    public ResponseEntity<MockTestResultResponse> submitMockTest(
+            @PathVariable UUID attemptId,
+            @RequestBody MockTestSubmitRequest request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        MockTestResultResponse response = mockTestService.submitTest(attemptId, request, userDetails.getUsername());
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Get mock test result for an application
+     */
+    @GetMapping("/applications/{applicationId}/mock-test/result")
+    public ResponseEntity<MockTestResultResponse> getMockTestResult(
+            @PathVariable UUID applicationId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        MockTestResultResponse response = mockTestService.getTestResult(applicationId, userDetails.getUsername());
+        return ResponseEntity.ok(response);
     }
 }

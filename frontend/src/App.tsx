@@ -23,6 +23,8 @@ import HrSelectedPage from './pages/hr/HrSelectedPage';
 import CandidateProfilePage from './pages/candidate/CandidateProfilePage';
 import CandidateJobsPage from './pages/candidate/CandidateJobsPage';
 import CandidateApplicationsPage from './pages/candidate/CandidateApplicationsPage';
+import CandidateInterviewsPage from './pages/candidate/CandidateInterviewsPage';
+import CandidateMockTestPage from './pages/candidate/CandidateMockTestPage';
 
 function AppRoutes() {
   const { isAuthenticated, user } = useAuth();
@@ -87,6 +89,12 @@ function AppRoutes() {
         } />
         <Route path="/candidate/applications" element={
           <ProtectedRoute roles={['ROLE_CANDIDATE']}><CandidateApplicationsPage /></ProtectedRoute>
+        } />
+        <Route path="/candidate/interviews" element={
+          <ProtectedRoute roles={['ROLE_CANDIDATE']}><CandidateInterviewsPage /></ProtectedRoute>
+        } />
+        <Route path="/candidate/mock-test/:applicationId" element={
+          <ProtectedRoute roles={['ROLE_CANDIDATE']}><CandidateMockTestPage /></ProtectedRoute>
         } />
       </Route>
 

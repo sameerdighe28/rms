@@ -3,12 +3,14 @@ package com.miniorange.recruitmentmanagementservice.service.impl;
 import com.miniorange.recruitmentmanagementservice.dto.request.CreateCompanyRequest;
 import com.miniorange.recruitmentmanagementservice.dto.response.CompanyResponse;
 import com.miniorange.recruitmentmanagementservice.entity.Company;
+import com.miniorange.recruitmentmanagementservice.entity.Job;
 import com.miniorange.recruitmentmanagementservice.exception.BadRequestException;
 import com.miniorange.recruitmentmanagementservice.exception.ResourceNotFoundException;
-import com.miniorange.recruitmentmanagementservice.repository.CompanyRepository;
+import com.miniorange.recruitmentmanagementservice.repository.*;
 import com.miniorange.recruitmentmanagementservice.service.CompanyService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
@@ -19,6 +21,9 @@ import java.util.stream.Collectors;
 public class CompanyServiceImpl implements CompanyService {
 
     private final CompanyRepository companyRepository;
+    private final UserRepository userRepository;
+    private final JobRepository jobRepository;
+    private final JobApplicationRepository jobApplicationRepository;
 
     @Override
     public CompanyResponse createCompany(CreateCompanyRequest request) {
@@ -37,9 +42,26 @@ public class CompanyServiceImpl implements CompanyService {
     }
 
     @Override
+    @Transactional
     public void deleteCompany(UUID companyId) {
         Company company = companyRepository.findById(companyId)
                 .orElseThrow(() -> new ResourceNotFoundException("Company not found with id: " + companyId));
+
+        // Delete all job applications for jobs in this company
+        List<Job> jobs = jobRepository.findByCompanyId(companyId);
+        for (Job job : jobs) {
+            jobApplicationRepository.deleteAll(jobApplicationRepository.findByJobId(job.getId()));
+        }
+
+        // Delete all jobs
+        jobRepository.deleteAll(jobs);
+
+        // Nullify company reference for users (COO, HR) associated with this company
+        userRepository.findByCompanyId(companyId).forEach(user -> {
+            user.setCompany(null);
+            userRepository.save(user);
+        });
+
         companyRepository.delete(company);
     }
 

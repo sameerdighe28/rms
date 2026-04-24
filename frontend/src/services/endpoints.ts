@@ -33,6 +33,8 @@ export const hrApi = {
   updateApplicationStatus: (appId: string, data: T.UpdateApplicationStatusRequest) =>
     api.put<T.JobApplicationResponse>(`/hr/applications/${appId}/status`, data),
   getSelectedCandidates: (jobId: string) => api.get<T.SelectedCandidateDetailResponse[]>(`/hr/jobs/${jobId}/selected-candidates`),
+  scheduleInterview: (appId: string, data: T.ScheduleInterviewRequest) =>
+    api.post<T.InterviewResponse>(`/hr/applications/${appId}/schedule-interview`, data),
 };
 
 // ── Candidate ──
@@ -61,4 +63,10 @@ export const candidateApi = {
   getAvailableJobs: () => api.get<T.JobResponse[]>('/candidate/jobs'),
   applyToJob: (jobId: string) => api.post<T.JobApplicationResponse>(`/candidate/jobs/${jobId}/apply`),
   getMyApplications: () => api.get<T.JobApplicationResponse[]>('/candidate/applications'),
+  getMyInterviews: () => api.get<T.InterviewResponse[]>('/candidate/interviews'),
+  postponeInterview: (interviewId: string) => api.put<T.InterviewResponse>(`/candidate/interviews/${interviewId}/postpone`),
+  startMockTest: (applicationId: string) => api.post<T.MockTestStartResponse>(`/candidate/applications/${applicationId}/mock-test/start`),
+  submitMockTest: (attemptId: string, data: T.MockTestSubmitRequest) =>
+    api.post<T.MockTestResultResponse>(`/candidate/mock-test/${attemptId}/submit`, data),
+  getMockTestResult: (applicationId: string) => api.get<T.MockTestResultResponse>(`/candidate/applications/${applicationId}/mock-test/result`),
 };

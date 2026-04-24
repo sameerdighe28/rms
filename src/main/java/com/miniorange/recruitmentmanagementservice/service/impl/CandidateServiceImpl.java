@@ -183,6 +183,8 @@ public class CandidateServiceImpl implements CandidateService {
                 .title(job.getTitle())
                 .description(job.getDescription())
                 .skillset(job.getSkillset())
+                .requiredQualifications(job.getRequiredQualifications())
+                .preferredQualifications(job.getPreferredQualifications())
                 .category(job.getCategory().name())
                 .location(job.getLocation())
                 .companyName(job.getCompany().getName())

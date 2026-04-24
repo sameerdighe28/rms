@@ -14,6 +14,8 @@ export default function HrApplicationsPage() {
   const { jobId } = useParams<{ jobId: string }>();
   const [apps, setApps] = useState<JobApplicationResponse[]>([]);
   const [loading, setLoading] = useState<string | null>(null);
+  const [scheduleModal, setScheduleModal] = useState<string | null>(null);
+  const [scheduledAt, setScheduledAt] = useState('');
   const navigate = useNavigate();
 
   const load = async () => {
@@ -28,6 +30,19 @@ export default function HrApplicationsPage() {
     try {
       await hrApi.updateApplicationStatus(appId, { status } as UpdateApplicationStatusRequest);
       toast.success(`Status updated to ${status}`);
+      load();
+    } catch (err: any) { toast.error(err.response?.data?.message || 'Failed'); }
+    finally { setLoading(null); }
+  };
+
+  const handleScheduleInterview = async (appId: string) => {
+    if (!scheduledAt) { toast.error('Please select a date/time'); return; }
+    setLoading(appId + 'schedule');
+    try {
+      await hrApi.scheduleInterview(appId, { scheduledAt: new Date(scheduledAt).toISOString() });
+      toast.success('Interview scheduled');
+      setScheduleModal(null);
+      setScheduledAt('');
       load();
     } catch (err: any) { toast.error(err.response?.data?.message || 'Failed'); }
     finally { setLoading(null); }
@@ -64,6 +79,12 @@ export default function HrApplicationsPage() {
                         {s}
                       </button>
                     ))}
+                    {app.status === 'INTERVIEWING' && (
+                      <button className="btn btn-sm btn-warning"
+                        onClick={() => setScheduleModal(app.id)}>
+                        📅 Schedule Interview
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -71,7 +92,28 @@ export default function HrApplicationsPage() {
           </tbody>
         </table></div>
       )}
+
+      {scheduleModal && (
+        <div className="modal-overlay" onClick={() => setScheduleModal(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <h2 className="modal-title">Schedule Interview</h2>
+            <div className="form-group">
+              <label>Interview Date & Time *</label>
+              <input className="form-control" type="datetime-local" value={scheduledAt}
+                onChange={e => setScheduledAt(e.target.value)}
+                min={new Date().toISOString().slice(0, 16)} />
+            </div>
+            <div className="modal-actions">
+              <button type="button" className="btn btn-outline" onClick={() => setScheduleModal(null)}>Cancel</button>
+              <button className="btn btn-primary"
+                disabled={loading === scheduleModal + 'schedule'}
+                onClick={() => handleScheduleInterview(scheduleModal)}>
+                {loading === scheduleModal + 'schedule' ? 'Scheduling...' : 'Schedule'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
-

@@ -74,6 +74,8 @@ export interface PostJobRequest {
   title: string;
   description: string;
   skillset: string[];
+  requiredQualifications?: string[];
+  preferredQualifications?: string[];
   category: 'TECHNICAL' | 'NON_TECHNICAL';
   location?: string;
   salaryMin?: number | null;
@@ -85,6 +87,8 @@ export interface JobResponse {
   title: string;
   description: string;
   skillset: string[];
+  requiredQualifications: string[];
+  preferredQualifications: string[];
   category: string;
   location: string;
   companyName: string;
@@ -182,3 +186,53 @@ export interface ApiErrorResponse {
 export interface MessageResponse {
   message: string;
 }
+
+// ── Interview ──
+export interface InterviewResponse {
+  id: string;
+  jobApplicationId: string;
+  jobTitle: string;
+  companyName: string;
+  candidateName: string;
+  candidateEmail: string;
+  scheduledAt: string;
+  status: string;
+  postponeCount: number;
+  createdAt: string;
+}
+
+export interface ScheduleInterviewRequest {
+  scheduledAt: string;
+}
+
+// ── Mock Test ──
+export interface MockQuestionDTO {
+  id: string;
+  questionText: string;
+  optionA: string;
+  optionB: string;
+  optionC: string;
+  optionD: string;
+}
+
+export interface MockTestStartResponse {
+  attemptId: string;
+  category: string;
+  totalQuestions: number;
+  questions: MockQuestionDTO[];
+}
+
+export interface MockTestSubmitRequest {
+  answers: Record<string, string>;
+}
+
+export interface MockTestResultResponse {
+  attemptId: string;
+  jobApplicationId: string;
+  category: string;
+  score: number;
+  totalQuestions: number;
+  completed: boolean;
+  completedAt: string | null;
+}
+

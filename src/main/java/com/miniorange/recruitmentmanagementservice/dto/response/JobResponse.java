@@ -22,6 +22,10 @@ public class JobResponse {
 
     private List<String> skillset;
 
+    private List<String> requiredQualifications;
+
+    private List<String> preferredQualifications;
+
     private String category;
 
     private String location;
@@ -36,4 +40,3 @@ public class JobResponse {
 
     private String salaryRange;
 }
-

@@ -28,21 +28,25 @@ A comprehensive **full-stack** recruitment management application built with **S
 
 The Recruitment Management Service provides a role-based platform where:
 
-- **Super Admins** manage companies and onboard COOs
+- **Super Admins** manage companies (create & delete with full cascade) and onboard COOs
 - **COOs** enlist companies and onboard HRs
-- **HRs** post technical and non-technical jobs with skillsets and optional salary ranges, trigger AI-powered resume matching, manage interview workflows, and view selected candidate details
-- **Candidates** create profiles, choose a category (Technical/Non-Technical), set expected salary range, browse matching jobs, and apply
+- **HRs** post technical and non-technical jobs with skillsets, required/preferred qualifications, and optional salary ranges; trigger AI-powered resume matching; schedule interviews; manage interview workflows; and view selected candidate details
+- **Candidates** create profiles, choose a category (Technical/Non-Technical), set expected salary range, browse matching jobs, apply, take mock tests, view scheduled interviews, and postpone interviews
 
 All operations are secured via **JWT token-based authentication** with a **two-factor OTP verification** (sent to email and mobile).
 
-### ✨ Key Features (New)
+### ✨ Key Features
 
 - **🤖 AI Resume Matching** — Integrates with an external Python ML engine (`POST /match` with multipart form-data). Downloads candidate resume PDFs, sends them along with job description & skills, and returns ranked candidates with match scores and a best candidate pick
 - **📋 Interview Workflow Management** — Full application status lifecycle: `APPLIED → SHORTLISTED → INTERVIEWING → SELECTED / REJECTED` with strict transition validation
+- **📅 Interview Scheduling & Postponement** — HR can schedule interviews for candidates in INTERVIEWING status. Candidates can view their scheduled interviews on their dashboard and postpone up to 2 times. When postponed, the next candidate in the queue gets the interview slot, and the postponing candidate moves to the end of the queue
+- **📝 Mock Tests** — After applying to a job, candidates can take a mock test with 10 MCQ questions auto-selected based on the job role (categories: Marketing, Backend Developer, Frontend Developer, Salesman, Designer). 100 questions seeded on startup (20 per category)
+- **✅ Required & Preferred Qualifications** — HR can specify required qualifications (must-haves) and preferred qualifications (nice-to-haves) when posting a job, displayed to candidates on job listings
+- **🗑️ Cascade Company Deletion** — Super Admin can delete a company, which cascade-deletes all associated job applications, jobs, and nullifies company references for associated users (COO, HR)
 - **👤 Selected Candidate Details Sharing** — After selection, HR gets full candidate details (contact, skills, resume, salary expectations) for offer discussions
 - **💰 Optional Salary Range on Jobs** — HR can post jobs with or without salary range (e.g., `6.0-10.0 LPA`)
 - **💵 Optional Expected Salary for Candidates** — Candidates can set their salary expectations or leave them blank
-- **🛡️ Edge Case Handling** — Salary range validation (min ≤ max), status transition guards, duplicate application prevention, empty result handling
+- **🛡️ Edge Case Handling** — Salary range validation (min ≤ max), status transition guards, duplicate application prevention, empty result handling, interview postpone limits
 
 ---
 
@@ -76,7 +80,7 @@ All operations are secured via **JWT token-based authentication** with a **two-f
 ┌─────────────────────────────────────────────────────────────────┐
 │              React Frontend (Vite + TypeScript)                  │
 │  Login │ OTP │ SuperAdmin │ COO │ HR │ Candidate Pages          │
-│  AuthContext │ ProtectedRoute │ Axios Interceptors               │
+│  Interviews │ Mock Tests │ AuthContext │ ProtectedRoute          │
 ├─────────────────────────────────────────────────────────────────┤
 │                        REST Controllers                         │
 │  AuthController │ SuperAdminController │ CooController │ ...    │
@@ -84,16 +88,18 @@ All operations are secured via **JWT token-based authentication** with a **two-f
 │                        Service Layer                            │
 │  AuthService │ CompanyService │ JobService │ CandidateService   │
 │  OtpService  │ EmailService  │ SmsService │ UserService         │
-│  ResumeMatchingService                                          │
+│  ResumeMatchingService │ InterviewService │ MockTestService     │
 ├─────────────────────────────────────────────────────────────────┤
 │                     Security Layer                              │
 │  JwtUtils │ JwtAuthFilter │ SecurityConfig │ UserDetailsService │
 ├─────────────────────────────────────────────────────────────────┤
 │                      Repository Layer                           │
 │  UserRepo │ CompanyRepo │ JobRepo │ CandidateProfileRepo │ ... │
+│  InterviewRepo │ InterviewQueueRepo │ MockQuestionRepo │ ...   │
 ├─────────────────────────────────────────────────────────────────┤
 │                    PostgreSQL Database                           │
 │  users │ companies │ jobs │ candidate_profiles │ otp_tokens     │
+│  interviews │ interview_queue │ mock_questions │ mock_test_...  │
 ├─────────────────────────────────────────────────────────────────┤
 │                  External: Python ML Engine                      │
 │  POST /match (multipart: job_description, job_skills, files)    │
@@ -106,10 +112,10 @@ All operations are secured via **JWT token-based authentication** with a **two-f
 
 | Role | Permissions |
 |---|---|
-| **SUPER_ADMIN** | Create companies, delete companies, create COO users (with mandatory company assignment), view all companies & COOs |
+| **SUPER_ADMIN** | Create companies, delete companies (cascade deletes all jobs, applications, nullifies users), create COO users (with mandatory company assignment), view all companies & COOs |
 | **COO** | Belongs to a specific company. View companies (read-only), onboard HR users (automatically assigned to COO's company), view HRs |
-| **HR** | Post jobs (technical/non-technical) with skillsets and optional salary range, trigger AI resume matching, manage application status (APPLIED → SHORTLISTED → INTERVIEWING → SELECTED/REJECTED), view selected candidate full details |
-| **CANDIDATE** | Register self, **login directly without OTP**, create profile (choose TECHNICAL or NON_TECHNICAL category, upload resume PDF, set optional expected salary range), browse matching jobs, apply to jobs, view applications |
+| **HR** | Post jobs (technical/non-technical) with skillsets, required & preferred qualifications, and optional salary range; trigger AI resume matching; schedule interviews for candidates; manage application status (APPLIED → SHORTLISTED → INTERVIEWING → SELECTED/REJECTED); view selected candidate full details |
+| **CANDIDATE** | Register self, **login directly without OTP**, create profile (choose TECHNICAL or NON_TECHNICAL category, upload resume PDF, set optional expected salary range), browse matching jobs, apply to jobs, view applications, take mock tests, view scheduled interviews, postpone interviews (max 2 times) |
 
 ---
 
@@ -160,7 +166,7 @@ Step 3: Access Protected APIs
 | Method | Endpoint | Description | Request Body |
 |---|---|---|---|
 | `POST` | `/api/super-admin/companies` | Create a company | `{ "name", "address", "website" }` |
-| `DELETE` | `/api/super-admin/companies/{id}` | Delete a company | - |
+| `DELETE` | `/api/super-admin/companies/{id}` | Delete a company (cascade) | - |
 | `GET` | `/api/super-admin/companies` | List all companies | - |
 | `POST` | `/api/super-admin/coo` | Create a COO user (with mandatory company) | `{ "email", "password", "fullName", "mobileNumber", "companyId" }` |
 | `GET` | `/api/super-admin/coo` | List all COOs | - |
@@ -177,23 +183,29 @@ Step 3: Access Protected APIs
 
 | Method | Endpoint | Description | Request Body |
 |---|---|---|---|
-| `POST` | `/api/hr/jobs` | Post a new job (salary range optional) | `{ "title", "description", "skillset", "category", "location", "salaryMin?", "salaryMax?" }` |
+| `POST` | `/api/hr/jobs` | Post a new job (with qualifications, salary range optional) | `{ "title", "description", "skillset", "requiredQualifications?", "preferredQualifications?", "category", "location", "salaryMin?", "salaryMax?" }` |
 | `GET` | `/api/hr/jobs` | List jobs posted by this HR | - |
 | `GET` | `/api/hr/jobs/{jobId}/applications` | View applications for a job | - |
 | `POST` | `/api/hr/jobs/{jobId}/match-candidates` | Trigger ML resume matching for a job | - |
 | `PUT` | `/api/hr/applications/{applicationId}/status` | Update application status | `{ "status" }` |
+| `POST` | `/api/hr/applications/{applicationId}/schedule-interview` | Schedule interview for a candidate | `{ "scheduledAt" }` |
 | `GET` | `/api/hr/jobs/{jobId}/selected-candidates` | Get full details of selected candidates | - |
 
 ### 🟢 Candidate (`CANDIDATE` role required)
 
 | Method | Endpoint | Description | Request Body |
 |---|---|---|---|
-| `POST` | `/api/candidate/profile` | Create profile (choose category) | `{ "category", "skills", "resumeUrl", "experienceYears", "expectedSalaryMin?", "expectedSalaryMax?" }` |
-| `PUT` | `/api/candidate/profile` | Update profile | `{ "category", "skills", "resumeUrl", "experienceYears", "expectedSalaryMin?", "expectedSalaryMax?" }` |
+| `POST` | `/api/candidate/profile` | Create profile (choose category) | multipart: `profile` (JSON) + `resume` (file) |
+| `PUT` | `/api/candidate/profile` | Update profile | multipart: `profile` (JSON) + `resume` (file, optional) |
 | `GET` | `/api/candidate/profile` | Get own profile | - |
 | `GET` | `/api/candidate/jobs` | Browse jobs matching category | - |
 | `POST` | `/api/candidate/jobs/{jobId}/apply` | Apply to a job | - |
 | `GET` | `/api/candidate/applications` | View own applications | - |
+| `GET` | `/api/candidate/interviews` | View own scheduled interviews | - |
+| `PUT` | `/api/candidate/interviews/{interviewId}/postpone` | Postpone an interview (max 2 times) | - |
+| `POST` | `/api/candidate/applications/{appId}/mock-test/start` | Start a mock test for an application | - |
+| `POST` | `/api/candidate/mock-test/{attemptId}/submit` | Submit mock test answers | `{ "answers": { "questionId": "A/B/C/D" } }` |
+| `GET` | `/api/candidate/applications/{appId}/mock-test/result` | Get mock test result | - |
 
 ---
 
@@ -205,7 +217,7 @@ src/main/java/com/miniorange/recruitmentmanagementservice/
 ├── RecruitmentManagementServiceApplication.java   # Main entry point
 │
 ├── config/
-│   ├── DataInitializer.java              # Seeds default SUPER_ADMIN on startup
+│   ├── DataInitializer.java              # Seeds SUPER_ADMIN + 100 mock test questions
 │   ├── RestTemplateConfig.java           # RestTemplate bean for ML engine calls
 │   └── TwilioConfig.java                 # Twilio SMS client initialization
 │
@@ -213,8 +225,8 @@ src/main/java/com/miniorange/recruitmentmanagementservice/
 │   ├── AuthController.java               # /api/auth/** (public endpoints)
 │   ├── SuperAdminController.java         # /api/super-admin/** 
 │   ├── CooController.java                # /api/coo/**
-│   ├── HrController.java                 # /api/hr/**
-│   └── CandidateController.java          # /api/candidate/**
+│   ├── HrController.java                 # /api/hr/** (+ schedule interview)
+│   └── CandidateController.java          # /api/candidate/** (+ interviews, mock tests)
 │
 ├── dto/
 │   ├── request/
@@ -223,18 +235,24 @@ src/main/java/com/miniorange/recruitmentmanagementservice/
 │   │   ├── RegisterUserRequest.java
 │   │   ├── CreateCompanyRequest.java
 │   │   ├── CreateHrRequest.java
-│   │   ├── PostJobRequest.java
+│   │   ├── PostJobRequest.java           # + requiredQualifications, preferredQualifications
 │   │   ├── CandidateProfileRequest.java
 │   │   ├── UpdateApplicationStatusRequest.java
+│   │   ├── ScheduleInterviewRequest.java # NEW — schedule interview datetime
+│   │   ├── MockTestSubmitRequest.java    # NEW — submit mock test answers
 │   │   └── ResumeMatchRequest.java
 │   └── response/
 │       ├── AuthResponse.java
 │       ├── OtpSentResponse.java
 │       ├── UserResponse.java
 │       ├── CompanyResponse.java
-│       ├── JobResponse.java
+│       ├── JobResponse.java              # + requiredQualifications, preferredQualifications
 │       ├── CandidateProfileResponse.java
 │       ├── JobApplicationResponse.java
+│       ├── InterviewResponse.java        # NEW — interview details
+│       ├── MockQuestionDTO.java          # NEW — question without answer
+│       ├── MockTestStartResponse.java    # NEW — test start with questions
+│       ├── MockTestResultResponse.java   # NEW — test score/result
 │       ├── ResumeMatchResponse.java
 │       ├── MlEngineMatchResponse.java
 │       ├── SelectedCandidateDetailResponse.java
@@ -244,16 +262,22 @@ src/main/java/com/miniorange/recruitmentmanagementservice/
 ├── entity/
 │   ├── User.java                         # Users table (all roles)
 │   ├── Company.java                      # Companies table
-│   ├── Job.java                          # Jobs with skillsets
+│   ├── Job.java                          # Jobs with skillsets + qualifications
 │   ├── CandidateProfile.java             # Candidate profiles (tech/non-tech)
 │   ├── JobApplication.java               # Job applications
-│   └── OtpToken.java                     # OTP tokens for 2FA
+│   ├── OtpToken.java                     # OTP tokens for 2FA
+│   ├── Interview.java                    # NEW — scheduled interviews with postpone tracking
+│   ├── InterviewQueue.java               # NEW — interview queue per job
+│   ├── MockQuestion.java                 # NEW — MCQ question bank
+│   └── MockTestAttempt.java              # NEW — candidate test attempts with scores
 │
 ├── enums/
 │   ├── Role.java                         # SUPER_ADMIN, COO, HR, CANDIDATE
 │   ├── JobCategory.java                  # TECHNICAL, NON_TECHNICAL
 │   ├── CandidateCategory.java            # TECHNICAL, NON_TECHNICAL
-│   └── ApplicationStatus.java            # APPLIED, SHORTLISTED, INTERVIEWING, SELECTED, REJECTED
+│   ├── ApplicationStatus.java            # APPLIED, SHORTLISTED, INTERVIEWING, SELECTED, REJECTED
+│   ├── InterviewStatus.java              # NEW — SCHEDULED, COMPLETED, POSTPONED, CANCELLED
+│   └── MockTestCategory.java             # NEW — MARKETING, BACKEND_DEVELOPER, FRONTEND_DEVELOPER, SALESMAN, DESIGNER
 │
 ├── exception/
 │   ├── ResourceNotFoundException.java    # 404 errors
@@ -262,12 +286,16 @@ src/main/java/com/miniorange/recruitmentmanagementservice/
 │   └── GlobalExceptionHandler.java       # Centralized exception handling
 │
 ├── repository/
-│   ├── UserRepository.java
+│   ├── UserRepository.java              # + findByCompanyId
 │   ├── CompanyRepository.java
 │   ├── JobRepository.java
 │   ├── CandidateProfileRepository.java
 │   ├── JobApplicationRepository.java
-│   └── OtpTokenRepository.java
+│   ├── OtpTokenRepository.java
+│   ├── InterviewRepository.java          # NEW
+│   ├── InterviewQueueRepository.java     # NEW
+│   ├── MockQuestionRepository.java       # NEW
+│   └── MockTestAttemptRepository.java    # NEW
 │
 ├── security/
 │   ├── JwtUtils.java                     # JWT token generation & validation
@@ -283,16 +311,20 @@ src/main/java/com/miniorange/recruitmentmanagementservice/
     ├── JobService.java
     ├── CandidateService.java
     ├── ResumeMatchingService.java
+    ├── InterviewService.java             # NEW
+    ├── MockTestService.java              # NEW
     ├── OtpService.java
     ├── EmailService.java
     ├── SmsService.java
     └── impl/
         ├── AuthServiceImpl.java
-        ├── CompanyServiceImpl.java
+        ├── CompanyServiceImpl.java       # + cascade delete
         ├── UserServiceImpl.java
-        ├── JobServiceImpl.java
-        ├── CandidateServiceImpl.java
+        ├── JobServiceImpl.java           # + qualifications mapping
+        ├── CandidateServiceImpl.java     # + qualifications mapping
         ├── ResumeMatchingServiceImpl.java
+        ├── InterviewServiceImpl.java     # NEW — schedule, postpone, queue mgmt
+        ├── MockTestServiceImpl.java      # NEW — start, submit, score, category detection
         ├── OtpServiceImpl.java
         ├── EmailServiceImpl.java
         └── SmsServiceImpl.java
@@ -302,36 +334,38 @@ frontend/                                   # React Frontend (Vite + TypeScript)
 ├── package.json
 ├── src/
 │   ├── main.tsx                            # Entry point
-│   ├── App.tsx                             # Routes & providers
+│   ├── App.tsx                             # Routes & providers (+ interview, mock test routes)
 │   ├── index.css                           # Global styles
-│   ├── types/index.ts                      # TypeScript interfaces (all DTOs)
+│   ├── types/index.ts                      # TypeScript interfaces (+ Interview, MockTest types)
 │   ├── context/AuthContext.tsx              # JWT auth state management
 │   ├── components/
-│   │   ├── Layout.tsx                      # Navbar + role-based nav links
+│   │   ├── Layout.tsx                      # Navbar + role-based nav links (+ My Interviews)
 │   │   └── ProtectedRoute.tsx              # Route guard (auth + role check)
 │   ├── services/
 │   │   ├── api.ts                          # Axios instance + JWT interceptor
-│   │   └── endpoints.ts                    # All API calls grouped by role
+│   │   └── endpoints.ts                    # All API calls (+ interview, mock test endpoints)
 │   └── pages/
 │       ├── auth/
 │       │   ├── LoginPage.tsx               # Email + password login
 │       │   ├── VerifyOtpPage.tsx           # OTP verification → JWT
 │       │   └── RegisterPage.tsx            # Candidate self-registration
 │       ├── super-admin/
-│       │   ├── SACompaniesPage.tsx          # CRUD companies (with delete)
+│       │   ├── SACompaniesPage.tsx          # CRUD companies (with cascade delete)
 │       │   └── SACoosPage.tsx              # Create & list COOs
 │       ├── coo/
 │       │   ├── CooCompaniesPage.tsx        # Enlist companies
 │       │   └── CooHrsPage.tsx              # Onboard HRs (with company picker)
 │       ├── hr/
-│       │   ├── HrJobsPage.tsx             # Post jobs, view jobs, nav to sub-pages
-│       │   ├── HrApplicationsPage.tsx      # View & update application statuses
+│       │   ├── HrJobsPage.tsx             # Post jobs (+ qualifications), view jobs
+│       │   ├── HrApplicationsPage.tsx      # View & update status + schedule interviews
 │       │   ├── HrMatchPage.tsx            # Trigger AI resume matching
 │       │   └── HrSelectedPage.tsx          # View full details of selected candidates
 │       ├── candidate/
 │       │   ├── CandidateProfilePage.tsx    # Create/edit profile + salary expectations
-│       │   ├── CandidateJobsPage.tsx       # Browse & apply to matching jobs
-│       │   └── CandidateApplicationsPage.tsx # Track application statuses
+│       │   ├── CandidateJobsPage.tsx       # Browse & apply (+ view qualifications)
+│       │   ├── CandidateApplicationsPage.tsx # Track statuses + take mock tests
+│       │   ├── CandidateInterviewsPage.tsx # NEW — View & postpone interviews
+│       │   └── CandidateMockTestPage.tsx   # NEW — Take mock test & view results
 │       └── UnauthorizedPage.tsx            # 403 access denied
 ```
 
@@ -525,6 +559,8 @@ On first startup, a default **Super Admin** account is automatically created:
 
 > ⚠️ **Change these in production** by updating `app.admin.*` properties before first run.
 
+Additionally, **100 mock test questions** (20 per category) are seeded automatically on first startup.
+
 ---
 
 ## Sample API Requests
@@ -570,8 +606,6 @@ curl -X POST http://localhost:8080/api/auth/login \
 }
 ```
 
-> **Note:** Candidates skip OTP verification entirely. The login endpoint detects the CANDIDATE role and returns a JWT token immediately.
-
 ### 2. Verify OTP (Non-candidate roles only)
 
 > Check your email or console logs for the 6-digit OTP
@@ -608,40 +642,16 @@ curl -X POST http://localhost:8080/api/super-admin/companies \
   }'
 ```
 
-### 4. Create a COO with Company (Super Admin)
+### 4. Delete a Company (Super Admin — Cascade)
 
 ```bash
-curl -X POST http://localhost:8080/api/super-admin/coo \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <your-jwt-token>" \
-  -d '{
-    "email": "coo@techcorp.com",
-    "password": "Coo@123",
-    "fullName": "John COO",
-    "mobileNumber": "+1234567891",
-    "companyId": "<company-uuid>"
-  }'
+curl -X DELETE http://localhost:8080/api/super-admin/companies/<company-uuid> \
+  -H "Authorization: Bearer <your-jwt-token>"
 ```
 
-> **Note:** `companyId` is **mandatory** when creating a COO. The COO will be permanently assigned to this company.
+> **Note:** This cascade-deletes all job applications for jobs in the company, all jobs, and nullifies the company reference for associated COO/HR users.
 
-### 5. Onboard an HR (COO — auto-assigned to COO's company)
-
-```bash
-curl -X POST http://localhost:8080/api/coo/hr \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <coo-jwt-token>" \
-  -d '{
-    "email": "hr@techcorp.com",
-    "password": "Hr@123",
-    "fullName": "Jane HR",
-    "mobileNumber": "+1234567892"
-  }'
-```
-
-> **Note:** No `companyId` needed — the HR is automatically assigned to the authenticated COO's company.
-
-### 6. Post a Job (HR) — Salary Range Optional
+### 5. Post a Job with Qualifications (HR)
 
 ```bash
 curl -X POST http://localhost:8080/api/hr/jobs \
@@ -651,6 +661,8 @@ curl -X POST http://localhost:8080/api/hr/jobs \
     "title": "Senior Java Developer",
     "description": "Looking for experienced Java developer with Spring Boot expertise",
     "skillset": ["Java", "Spring Boot", "PostgreSQL", "Docker"],
+    "requiredQualifications": ["Bachelor'\''s degree in CS or related field", "3+ years Java experience", "Strong Spring Boot skills"],
+    "preferredQualifications": ["Master'\''s degree", "Cloud experience (AWS/GCP)", "Leadership experience"],
     "category": "TECHNICAL",
     "location": "Bangalore",
     "salaryMin": 6.0,
@@ -658,92 +670,90 @@ curl -X POST http://localhost:8080/api/hr/jobs \
   }'
 ```
 
-> **Note:** `salaryMin` and `salaryMax` are optional. If provided, both must be present and `salaryMin` must be ≤ `salaryMax`. The response includes a formatted `salaryRange` field (e.g., `"6.0-10.0 LPA"`).
-
-### 7. Register as Candidate
+### 6. Schedule an Interview (HR)
 
 ```bash
-curl -X POST http://localhost:8080/api/auth/register/candidate \
+curl -X POST http://localhost:8080/api/hr/applications/<application-uuid>/schedule-interview \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <hr-jwt-token>" \
   -d '{
-    "email": "candidate@example.com",
-    "password": "Candidate@123",
-    "fullName": "Alice Candidate",
-    "mobileNumber": "+1234567893"
+    "scheduledAt": "2026-05-01T10:00:00"
   }'
 ```
 
-### 8. Create Candidate Profile (Choose Category + Optional Salary Expectation)
+> **Note:** The application must be in `INTERVIEWING` status. Only one interview can be scheduled per application.
+
+### 7. View My Interviews (Candidate)
 
 ```bash
-curl -X POST http://localhost:8080/api/candidate/profile \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <candidate-jwt-token>" \
-  -d '{
-    "category": "TECHNICAL",
-    "skills": ["Java", "Python", "AWS"],
-    "resumeUrl": "https://example.com/resume.pdf",
-    "experienceYears": 3,
-    "expectedSalaryMin": 5.0,
-    "expectedSalaryMax": 8.0
-  }'
-```
-
-> **Note:** `expectedSalaryMin` and `expectedSalaryMax` are optional. If provided, both must be present and min ≤ max.
-
-### 9. Apply to a Job (Candidate)
-
-```bash
-curl -X POST http://localhost:8080/api/candidate/jobs/<job-uuid>/apply \
+curl -X GET http://localhost:8080/api/candidate/interviews \
   -H "Authorization: Bearer <candidate-jwt-token>"
 ```
 
-### 10. Trigger AI Resume Matching for a Job (HR)
+### 8. Postpone an Interview (Candidate)
 
 ```bash
-curl -X POST http://localhost:8080/api/hr/jobs/<job-uuid>/match-candidates \
-  -H "Authorization: Bearer <hr-jwt-token>"
+curl -X PUT http://localhost:8080/api/candidate/interviews/<interview-uuid>/postpone \
+  -H "Authorization: Bearer <candidate-jwt-token>"
+```
+
+> **Note:** Maximum 2 postponements allowed. When postponed, the next candidate in the queue gets the interview slot, and the postponing candidate moves to the end of the queue.
+
+### 9. Start a Mock Test (Candidate)
+
+```bash
+curl -X POST http://localhost:8080/api/candidate/applications/<application-uuid>/mock-test/start \
+  -H "Authorization: Bearer <candidate-jwt-token>"
 ```
 
 **Response:**
 ```json
 {
-  "jobId": "uuid",
-  "jobTitle": "Senior Java Developer",
-  "jobRole": "backend",
-  "bestCandidate": {
-    "candidateProfileId": "uuid",
-    "candidateName": "Alice Candidate",
-    "candidateEmail": "candidate@example.com",
-    "skills": ["Java", "Spring Boot"],
-    "experienceYears": 3,
-    "matchScore": 77.0,
-    "resumeUrl": "https://example.com/resume.pdf"
-  },
-  "matchedCandidates": [
+  "attemptId": "uuid",
+  "category": "BACKEND_DEVELOPER",
+  "totalQuestions": 10,
+  "questions": [
     {
-      "candidateProfileId": "uuid",
-      "candidateName": "Alice Candidate",
-      "candidateEmail": "candidate@example.com",
-      "skills": ["Java", "Spring Boot"],
-      "experienceYears": 3,
-      "matchScore": 77.0,
-      "resumeUrl": "https://example.com/resume.pdf"
+      "id": "uuid",
+      "questionText": "What is REST?",
+      "optionA": "A sleep mode",
+      "optionB": "Representational State Transfer",
+      "optionC": "Remote Execution System",
+      "optionD": "Real-time Event Stream"
     }
   ]
 }
 ```
 
-> **How it works:**
-> 1. Backend fetches the job's description and skills from the database
-> 2. Backend fetches all candidates matching the job category (TECHNICAL/NON_TECHNICAL) who have a resume URL
-> 3. Backend downloads each candidate's resume PDF from their URL
-> 4. Backend sends a **multipart/form-data** `POST` request to the Python ML engine at `http://127.0.0.1:8000/match` with:
->    - `job_description` (text) — the job description
->    - `job_skills` (text) — comma-separated skills
->    - `files` (file[]) — candidate resume PDFs
-> 5. ML engine returns `{ job_role, results: [{resume, score, role, years}], best_candidate: {...} }`
-> 6. Backend correlates resume filenames back to candidate profiles, converts scores (0–1) to percentages (0–100), and returns enriched response with candidate details
+> **Note:** The mock test category is auto-determined from the job title keywords. Each candidate can take one test per application. 10 questions are randomly selected from the category pool.
+
+### 10. Submit a Mock Test (Candidate)
+
+```bash
+curl -X POST http://localhost:8080/api/candidate/mock-test/<attempt-uuid>/submit \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <candidate-jwt-token>" \
+  -d '{
+    "answers": {
+      "<question-uuid-1>": "B",
+      "<question-uuid-2>": "A",
+      "<question-uuid-3>": "C"
+    }
+  }'
+```
+
+**Response:**
+```json
+{
+  "attemptId": "uuid",
+  "jobApplicationId": "uuid",
+  "category": "BACKEND_DEVELOPER",
+  "score": 7,
+  "totalQuestions": 10,
+  "completed": true,
+  "completedAt": "2026-04-24T15:30:00"
+}
+```
 
 ### 11. Update Application Status (HR)
 
@@ -769,32 +779,6 @@ curl -X GET http://localhost:8080/api/hr/jobs/<job-uuid>/selected-candidates \
   -H "Authorization: Bearer <hr-jwt-token>"
 ```
 
-**Response:**
-```json
-[
-  {
-    "applicationId": "uuid",
-    "jobId": "uuid",
-    "jobTitle": "Senior Java Developer",
-    "companyName": "TechCorp Solutions",
-    "status": "SELECTED",
-    "candidateProfileId": "uuid",
-    "candidateName": "Alice Candidate",
-    "candidateEmail": "candidate@example.com",
-    "candidateMobile": "+1234567893",
-    "category": "TECHNICAL",
-    "skills": ["Java", "Python", "AWS"],
-    "experienceYears": 3,
-    "resumeUrl": "https://example.com/resume.pdf",
-    "expectedSalaryMin": 5.0,
-    "expectedSalaryMax": 8.0,
-    "expectedSalaryRange": "5.0-8.0 LPA"
-  }
-]
-```
-
-> **Note:** This endpoint returns complete candidate details (including contact info, skills, resume, and salary expectations) only for candidates with `SELECTED` status, enabling HR to proceed with offer discussions.
-
 ---
 
 ## Database Schema
@@ -817,6 +801,17 @@ curl -X GET http://localhost:8080/api/hr/jobs/<job-uuid>/selected-candidates \
     ┌────────────────┐
     │ JobApplication  │
     └────────────────┘
+          │
+     ┌────┴────┐
+     ▼         ▼
+┌──────────┐ ┌────────────────┐
+│Interview │ │MockTestAttempt │
+└──────────┘ └────────────────┘
+
+┌────────────────┐     ┌──────────────┐
+│InterviewQueue  │     │ MockQuestion  │
+│  (per Job)     │     │ (question DB) │
+└────────────────┘     └──────────────┘
 ```
 
 ### Tables
@@ -825,12 +820,30 @@ curl -X GET http://localhost:8080/api/hr/jobs/<job-uuid>/selected-candidates \
 |---|---|
 | `users` | All users (Super Admin, COO, HR, Candidate) |
 | `companies` | Enlisted companies |
-| `jobs` | Job postings with category and optional salary range (`salary_min`, `salary_max`) |
+| `jobs` | Job postings with category and optional salary range |
 | `job_skillsets` | Skills for each job (ElementCollection) |
-| `candidate_profiles` | Candidate profiles with category and optional expected salary range (`expected_salary_min`, `expected_salary_max`) |
+| `job_required_qualifications` | Required qualifications per job (ElementCollection) |
+| `job_preferred_qualifications` | Preferred qualifications per job (ElementCollection) |
+| `candidate_profiles` | Candidate profiles with category and optional expected salary range |
 | `candidate_skills` | Skills for each candidate (ElementCollection) |
 | `job_applications` | Applications linking candidates to jobs |
 | `otp_tokens` | OTP tokens for two-factor authentication |
+| `interviews` | Scheduled interviews with status and postpone count |
+| `interview_queue` | Queue ordering for interview scheduling per job |
+| `mock_questions` | MCQ question bank (5 categories, 20 questions each) |
+| `mock_test_attempts` | Candidate test attempts with scores |
+
+### Mock Test Categories
+
+| Category | Keyword Detection (from job title) |
+|---|---|
+| `BACKEND_DEVELOPER` | backend, java, spring, node, python, server |
+| `FRONTEND_DEVELOPER` | frontend, react, angular, vue, ui, html, css |
+| `MARKETING` | marketing, seo, content, digital |
+| `SALESMAN` | sales, business development, account |
+| `DESIGNER` | design, graphic, ux, creative |
+
+> Default: TECHNICAL jobs → BACKEND_DEVELOPER, NON_TECHNICAL jobs → MARKETING
 
 ---
 
@@ -858,8 +871,6 @@ Failed to send OTP email
 FALLBACK - OTP for user@email.com: 123456
 ```
 
-To fix email sending, configure Gmail App Password correctly in `application.properties`.
-
 ### ❌ JWT Token Expired
 
 ```json
@@ -876,23 +887,29 @@ To fix email sending, configure Gmail App Password correctly in `application.pro
 
 **Fix:** Ensure your JWT token belongs to the correct role for the endpoint you're accessing.
 
-### ❌ Port Already in Use
-
-```bash
-# Find and kill process on port 8080
-lsof -ti:8080 | xargs kill -9
-
-# Or run on a different port
-./gradlew bootRun --args='--server.port=9090'
-```
-
-### ❌ ML Engine Connection Failed
+### ❌ Interview Already Scheduled
 
 ```json
-{ "status": 400, "message": "Failed to connect to resume matching engine. Please try again later." }
+{ "status": 400, "message": "Interview already scheduled for this application" }
 ```
 
-**Fix:** Ensure the Python ML engine is running on the configured URL (default: `http://127.0.0.1:8000`). The ML engine must expose a `POST /match` endpoint accepting multipart form-data (`job_description`, `job_skills`, `files`). Update `app.ml-engine.base-url` in `application.properties` if running on a different host/port. Also verify that candidate resume URLs are accessible and downloadable.
+**Fix:** Each application can only have one interview scheduled. Check existing interviews first.
+
+### ❌ Maximum Postponements Reached
+
+```json
+{ "status": 400, "message": "Maximum postponement limit (2) reached" }
+```
+
+**Fix:** Candidates can postpone a maximum of 2 times per interview. No further postponements allowed.
+
+### ❌ Mock Test Already Taken
+
+```json
+{ "status": 400, "message": "You have already taken the mock test for this application" }
+```
+
+**Fix:** Each candidate can take only one mock test per application. Use the result endpoint to view your score.
 
 ### ❌ Invalid Status Transition
 
@@ -900,7 +917,7 @@ lsof -ti:8080 | xargs kill -9
 { "status": 400, "message": "Application in APPLIED status can only be moved to SHORTLISTED or REJECTED" }
 ```
 
-**Fix:** Follow the valid status transition flow: `APPLIED → SHORTLISTED → INTERVIEWING → SELECTED/REJECTED`. Terminal states (`SELECTED`, `REJECTED`) cannot be changed.
+**Fix:** Follow the valid status transition flow: `APPLIED → SHORTLISTED → INTERVIEWING → SELECTED/REJECTED`.
 
 ### ❌ Invalid Salary Range
 
@@ -909,6 +926,14 @@ lsof -ti:8080 | xargs kill -9
 ```
 
 **Fix:** Ensure `salaryMin ≤ salaryMax`. Both fields must be provided together or both omitted.
+
+### ❌ ML Engine Connection Failed
+
+```json
+{ "status": 400, "message": "Failed to connect to resume matching engine. Please try again later." }
+```
+
+**Fix:** Ensure the Python ML engine is running on the configured URL (default: `http://127.0.0.1:8000`). The ML engine must expose a `POST /match` endpoint accepting multipart form-data (`job_description`, `job_skills`, `files`). Update `app.ml-engine.base-url` in `application.properties` if running on a different host/port. Also verify that candidate resume URLs are accessible and downloadable.
 
 ---
 

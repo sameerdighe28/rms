@@ -19,6 +19,10 @@ public class PostJobRequest {
 
     private List<String> skillset;
 
+    private List<String> requiredQualifications;
+
+    private List<String> preferredQualifications;
+
     @NotNull(message = "Job category is required (TECHNICAL or NON_TECHNICAL)")
     private JobCategory category;
 
@@ -30,4 +34,3 @@ public class PostJobRequest {
     @Positive(message = "Maximum salary must be positive")
     private Double salaryMax;
 }
-
