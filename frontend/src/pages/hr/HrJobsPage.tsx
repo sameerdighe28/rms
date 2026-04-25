@@ -13,6 +13,8 @@ export default function HrJobsPage() {
     requiredQualifications: '', preferredQualifications: '',
   });
   const [loading, setLoading] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiPoints, setAiPoints] = useState('');
   const navigate = useNavigate();
 
   const load = async () => {
@@ -21,6 +23,32 @@ export default function HrJobsPage() {
   };
 
   useEffect(() => { load(); }, []);
+
+  const handleGenerateAI = async () => {
+    if (!form.title.trim()) {
+      toast.error('Please enter a Job Title first');
+      return;
+    }
+    setAiLoading(true);
+    try {
+      const points = aiPoints.split(',').map(s => s.trim()).filter(Boolean);
+      const res = (await hrApi.generateJd({ role: form.title, points })).data;
+      setForm(f => ({
+        ...f,
+        title: res.job_title || f.title,
+        description: res.summary + (res.responsibilities?.length
+          ? '\n\nResponsibilities:\n' + res.responsibilities.map((r, i) => `${i + 1}. ${r}`).join('\n')
+          : ''),
+        requiredQualifications: res.required_qualifications?.join(', ') || f.requiredQualifications,
+        preferredQualifications: res.preferred_qualifications?.join(', ') || f.preferredQualifications,
+      }));
+      toast.success('AI generated job description!');
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'AI generation failed');
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   const handleCreate = async (e: FormEvent) => {
     e.preventDefault();
@@ -118,6 +146,19 @@ export default function HrJobsPage() {
                 <label>Job Title *</label>
                 <input className="form-control" value={form.title}
                   onChange={e => setForm(f => ({ ...f, title: e.target.value }))} required />
+              </div>
+              <div className="form-group" style={{ background: '#f0f7ff', padding: 12, borderRadius: 8, border: '1px dashed #4a90d9' }}>
+                <label>🤖 AI Job Description Generator</label>
+                <p style={{ fontSize: '.85rem', color: '#666', margin: '4px 0 8px' }}>
+                  Enter key points about the role (comma-separated), then click generate to auto-fill the form.
+                </p>
+                <input className="form-control" value={aiPoints}
+                  onChange={e => setAiPoints(e.target.value)}
+                  placeholder="e.g. Build REST APIs, Work with databases, Use Spring Boot" />
+                <button type="button" className="btn btn-warning" style={{ marginTop: 8, width: '100%' }}
+                  onClick={handleGenerateAI} disabled={aiLoading || !form.title.trim()}>
+                  {aiLoading ? '⏳ Generating...' : '✨ Generate with AI'}
+                </button>
               </div>
               <div className="form-group">
                 <label>Description *</label>

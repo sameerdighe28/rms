@@ -175,6 +175,19 @@ export interface SelectedCandidateDetailResponse {
   expectedSalaryRange: string | null;
 }
 
+// ── AI Job Description Generation ──
+export interface GenerateJdResponse {
+  job_title: string;
+  summary: string;
+  responsibilities: string[];
+  required_qualifications: string[];
+  preferred_qualifications: string[];
+  bias_check: {
+    bias_found: boolean;
+    suggestions: string[];
+  };
+}
+
 // ── Error ──
 export interface ApiErrorResponse {
   timestamp: string;

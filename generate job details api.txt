@@ -1,0 +1,42 @@
+URL: http://127.0.0.1:8000/api/generate-jd
+
+Method: POST
+
+Request Body:
+{
+  "role": "Backend Developer",
+  "points": [
+    "Build REST APIs",
+    "Work with databases",
+    "Use Spring Boot",
+    "Handle scalability",
+    "Collaborate with frontend"
+  ]
+}
+
+
+Response Body:
+{
+    "job_title": "Backend Developer",
+    "summary": "We are seeking an experienced Backend Developer to join our team, responsible for designing, developing, and maintaining the backend infrastructure of our applications. The successful candidate will play a key role in building scalable and efficient systems, ensuring seamless integration with frontend components. This position is crucial to delivering high-quality products and services that meet the needs of our users.",
+    "responsibilities": [
+        "Design, develop, and deploy RESTful APIs that meet the requirements of our applications, ensuring they are secure, scalable, and well-documented.",
+        "Work collaboratively with our database team to design, implement, and maintain databases that support our applications, ensuring data integrity and optimal performance.",
+        "Utilize Spring Boot to develop backend services, leveraging its features to build robust, efficient, and scalable applications.",
+        "Develop and implement strategies to handle scalability, ensuring our systems can handle increased traffic and demand without compromising performance.",
+        "Collaborate closely with our frontend development team to ensure seamless integration of backend services with frontend components, facilitating the delivery of cohesive and user-friendly applications."
+    ],
+    "required_qualifications": [
+        "Bachelor's degree in Computer Science, Software Engineering, or a related field.",
+        "At least 3 years of experience in backend development, with a focus on building scalable and efficient systems.",
+        "Proficiency in Java, Spring Boot, and RESTful API design, with experience in database management and data modeling."
+    ],
+    "preferred_qualifications": [
+        "Experience with cloud-based platforms, such as AWS or Azure, and containerization using Docker.",
+        "Knowledge of agile development methodologies and version control systems, such as Git."
+    ],
+    "bias_check": {
+        "bias_found": false,
+        "suggestions": []
+    }
+}

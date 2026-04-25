@@ -30,7 +30,7 @@ The Recruitment Management Service provides a role-based platform where:
 
 - **Super Admins** manage companies (create & delete with full cascade) and onboard COOs
 - **COOs** enlist companies and onboard HRs
-- **HRs** post technical and non-technical jobs with skillsets, required/preferred qualifications, and optional salary ranges; trigger AI-powered resume matching; schedule interviews; manage interview workflows; and view selected candidate details
+- **HRs** post technical and non-technical jobs with skillsets, required/preferred qualifications, and optional salary ranges; use AI to auto-generate job descriptions and qualifications; trigger AI-powered resume matching; schedule interviews; manage interview workflows; and view selected candidate details
 - **Candidates** create profiles, choose a category (Technical/Non-Technical), set expected salary range, browse matching jobs, apply, take mock tests, view scheduled interviews, and postpone interviews
 
 All operations are secured via **JWT token-based authentication** with a **two-factor OTP verification** (sent to email and mobile).
@@ -38,6 +38,7 @@ All operations are secured via **JWT token-based authentication** with a **two-f
 ### ✨ Key Features
 
 - **🤖 AI Resume Matching** — Integrates with an external Python ML engine (`POST /match` with multipart form-data). Downloads candidate resume PDFs, sends them along with job description & skills, and returns ranked candidates with match scores and a best candidate pick
+- **✨ AI Job Description Generator** — HR can auto-generate job descriptions, responsibilities, required qualifications, and preferred qualifications using an external AI service (`POST /api/generate-jd`). Just enter the job title and key points, click "Generate with AI", and all form fields are auto-filled
 - **📋 Interview Workflow Management** — Full application status lifecycle: `APPLIED → SHORTLISTED → INTERVIEWING → SELECTED / REJECTED` with strict transition validation
 - **📅 Interview Scheduling & Postponement** — HR can schedule interviews for candidates in INTERVIEWING status. Candidates can view their scheduled interviews on their dashboard and postpone up to 2 times. When postponed, the next candidate in the queue gets the interview slot, and the postponing candidate moves to the end of the queue
 - **📝 Mock Tests** — After applying to a job, candidates can take a mock test with 10 MCQ questions auto-selected based on the job role (categories: Marketing, Backend Developer, Frontend Developer, Salesman, Designer). 100 questions seeded on startup (20 per category)
@@ -69,6 +70,7 @@ All operations are secured via **JWT token-based authentication** with a **two-f
 | Twilio SDK | 10.6.4 | SMS OTP Delivery |
 | RestTemplate | - | HTTP Client for ML Engine Integration |
 | Python ML Engine | External | Resume Parsing & Candidate Matching |
+| Python AI JD Service | External | AI Job Description & Qualifications Generation |
 | Lombok | - | Boilerplate Reduction |
 | Gradle | 9.x | Build Tool |
 
@@ -103,6 +105,7 @@ All operations are secured via **JWT token-based authentication** with a **two-f
 ├─────────────────────────────────────────────────────────────────┤
 │                  External: Python ML Engine                      │
 │  POST /match (multipart: job_description, job_skills, files)    │
+│  POST /api/generate-jd (AI job description generator)           │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -114,7 +117,7 @@ All operations are secured via **JWT token-based authentication** with a **two-f
 |---|---|
 | **SUPER_ADMIN** | Create companies, delete companies (cascade deletes all jobs, applications, nullifies users), create COO users (with mandatory company assignment), view all companies & COOs |
 | **COO** | Belongs to a specific company. View companies (read-only), onboard HR users (automatically assigned to COO's company), view HRs |
-| **HR** | Post jobs (technical/non-technical) with skillsets, required & preferred qualifications, and optional salary range; trigger AI resume matching; schedule interviews for candidates; manage application status (APPLIED → SHORTLISTED → INTERVIEWING → SELECTED/REJECTED); view selected candidate full details |
+| **HR** | Post jobs (technical/non-technical) with skillsets, required & preferred qualifications, and optional salary range; generate AI job descriptions & qualifications; trigger AI resume matching; schedule interviews for candidates; manage application status (APPLIED → SHORTLISTED → INTERVIEWING → SELECTED/REJECTED); view selected candidate full details |
 | **CANDIDATE** | Register self, **login directly without OTP**, create profile (choose TECHNICAL or NON_TECHNICAL category, upload resume PDF, set optional expected salary range), browse matching jobs, apply to jobs, view applications, take mock tests, view scheduled interviews, postpone interviews (max 2 times) |
 
 ---
@@ -183,6 +186,7 @@ Step 3: Access Protected APIs
 
 | Method | Endpoint | Description | Request Body |
 |---|---|---|---|
+| `POST` | `/api/hr/generate-jd` | Generate AI job description & qualifications | `{ "role", "points" }` |
 | `POST` | `/api/hr/jobs` | Post a new job (with qualifications, salary range optional) | `{ "title", "description", "skillset", "requiredQualifications?", "preferredQualifications?", "category", "location", "salaryMin?", "salaryMax?" }` |
 | `GET` | `/api/hr/jobs` | List jobs posted by this HR | - |
 | `GET` | `/api/hr/jobs/{jobId}/applications` | View applications for a job | - |
@@ -235,6 +239,7 @@ src/main/java/com/miniorange/recruitmentmanagementservice/
 │   │   ├── RegisterUserRequest.java
 │   │   ├── CreateCompanyRequest.java
 │   │   ├── CreateHrRequest.java
+│   │   ├── GenerateJdRequest.java      # NEW — AI JD generation request (role + points)
 │   │   ├── PostJobRequest.java           # + requiredQualifications, preferredQualifications
 │   │   ├── CandidateProfileRequest.java
 │   │   ├── UpdateApplicationStatusRequest.java
@@ -253,6 +258,7 @@ src/main/java/com/miniorange/recruitmentmanagementservice/
 │       ├── MockQuestionDTO.java          # NEW — question without answer
 │       ├── MockTestStartResponse.java    # NEW — test start with questions
 │       ├── MockTestResultResponse.java   # NEW — test score/result
+│       ├── GenerateJdResponse.java       # NEW — AI-generated JD, qualifications, bias check
 │       ├── ResumeMatchResponse.java
 │       ├── MlEngineMatchResponse.java
 │       ├── SelectedCandidateDetailResponse.java
@@ -651,7 +657,35 @@ curl -X DELETE http://localhost:8080/api/super-admin/companies/<company-uuid> \
 
 > **Note:** This cascade-deletes all job applications for jobs in the company, all jobs, and nullifies the company reference for associated COO/HR users.
 
-### 5. Post a Job with Qualifications (HR)
+### 5. Generate AI Job Description (HR)
+
+```bash
+curl -X POST http://localhost:8080/api/hr/generate-jd \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <hr-jwt-token>" \
+  -d '{
+    "role": "Backend Developer",
+    "points": ["Build REST APIs", "Work with databases", "Use Spring Boot", "Handle scalability", "Collaborate with frontend"]
+  }'
+```
+
+**Response:**
+```json
+{
+  "job_title": "Backend Developer",
+  "summary": "We are seeking an experienced Backend Developer...",
+  "responsibilities": ["Design, develop, and deploy RESTful APIs...", "..."],
+  "required_qualifications": ["Bachelor's degree in CS...", "At least 3 years experience...", "..."],
+  "preferred_qualifications": ["Experience with cloud platforms...", "Knowledge of agile methodologies..."],
+  "bias_check": { "bias_found": false, "suggestions": [] }
+}
+```
+
+> **Note:** This proxies to the external AI service at `http://127.0.0.1:8000/api/generate-jd`. The AI service must be running for this to work. In the UI, HR can enter the job title and key points, then click "✨ Generate with AI" to auto-fill the description, required qualifications, and preferred qualifications fields.
+
+### 6. Post a Job with Qualifications (HR)
+
+> **Tip:** Use the "Generate AI Job Description" endpoint (above) first, then copy the response into this request body to save time.
 
 ```bash
 curl -X POST http://localhost:8080/api/hr/jobs \
@@ -670,7 +704,7 @@ curl -X POST http://localhost:8080/api/hr/jobs \
   }'
 ```
 
-### 6. Schedule an Interview (HR)
+### 7. Schedule an Interview (HR)
 
 ```bash
 curl -X POST http://localhost:8080/api/hr/applications/<application-uuid>/schedule-interview \
@@ -683,14 +717,14 @@ curl -X POST http://localhost:8080/api/hr/applications/<application-uuid>/schedu
 
 > **Note:** The application must be in `INTERVIEWING` status. Only one interview can be scheduled per application.
 
-### 7. View My Interviews (Candidate)
+### 8. View My Interviews (Candidate)
 
 ```bash
 curl -X GET http://localhost:8080/api/candidate/interviews \
   -H "Authorization: Bearer <candidate-jwt-token>"
 ```
 
-### 8. Postpone an Interview (Candidate)
+### 9. Postpone an Interview (Candidate)
 
 ```bash
 curl -X PUT http://localhost:8080/api/candidate/interviews/<interview-uuid>/postpone \
@@ -699,7 +733,7 @@ curl -X PUT http://localhost:8080/api/candidate/interviews/<interview-uuid>/post
 
 > **Note:** Maximum 2 postponements allowed. When postponed, the next candidate in the queue gets the interview slot, and the postponing candidate moves to the end of the queue.
 
-### 9. Start a Mock Test (Candidate)
+### 10. Start a Mock Test (Candidate)
 
 ```bash
 curl -X POST http://localhost:8080/api/candidate/applications/<application-uuid>/mock-test/start \
@@ -727,7 +761,7 @@ curl -X POST http://localhost:8080/api/candidate/applications/<application-uuid>
 
 > **Note:** The mock test category is auto-determined from the job title keywords. Each candidate can take one test per application. 10 questions are randomly selected from the category pool.
 
-### 10. Submit a Mock Test (Candidate)
+### 11. Submit a Mock Test (Candidate)
 
 ```bash
 curl -X POST http://localhost:8080/api/candidate/mock-test/<attempt-uuid>/submit \
@@ -755,7 +789,7 @@ curl -X POST http://localhost:8080/api/candidate/mock-test/<attempt-uuid>/submit
 }
 ```
 
-### 11. Update Application Status (HR)
+### 12. Update Application Status (HR)
 
 ```bash
 curl -X PUT http://localhost:8080/api/hr/applications/<application-uuid>/status \
@@ -772,7 +806,7 @@ curl -X PUT http://localhost:8080/api/hr/applications/<application-uuid>/status 
 > - `INTERVIEWING` → `SELECTED` or `REJECTED`
 > - `SELECTED` / `REJECTED` → terminal (no further changes)
 
-### 12. Get Selected Candidate Details (HR)
+### 13. Get Selected Candidate Details (HR)
 
 ```bash
 curl -X GET http://localhost:8080/api/hr/jobs/<job-uuid>/selected-candidates \
@@ -934,6 +968,14 @@ FALLBACK - OTP for user@email.com: 123456
 ```
 
 **Fix:** Ensure the Python ML engine is running on the configured URL (default: `http://127.0.0.1:8000`). The ML engine must expose a `POST /match` endpoint accepting multipart form-data (`job_description`, `job_skills`, `files`). Update `app.ml-engine.base-url` in `application.properties` if running on a different host/port. Also verify that candidate resume URLs are accessible and downloadable.
+
+### ❌ AI Job Description Generation Failed
+
+```json
+{ "status": 400, "message": "Failed to generate job description from AI service: ..." }
+```
+
+**Fix:** Ensure the AI JD generation service is running at `http://127.0.0.1:8000`. The service must expose a `POST /api/generate-jd` endpoint accepting `{ "role": "...", "points": [...] }`. Check that the service is accessible from the Spring Boot backend.
 
 ---
 

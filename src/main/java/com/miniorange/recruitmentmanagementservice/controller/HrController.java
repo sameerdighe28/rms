@@ -1,5 +1,6 @@
 package com.miniorange.recruitmentmanagementservice.controller;
 
+import com.miniorange.recruitmentmanagementservice.dto.request.GenerateJdRequest;
 import com.miniorange.recruitmentmanagementservice.dto.request.PostJobRequest;
 import com.miniorange.recruitmentmanagementservice.dto.request.ScheduleInterviewRequest;
 import com.miniorange.recruitmentmanagementservice.dto.request.UpdateApplicationStatusRequest;
@@ -36,6 +37,7 @@ public class HrController {
     private final JobApplicationRepository jobApplicationRepository;
     private final ResumeMatchingService resumeMatchingService;
     private final InterviewService interviewService;
+    private final org.springframework.web.client.RestTemplate restTemplate;
 
     /**
      * HR schedules an interview for an application (must be in INTERVIEWING status)
@@ -46,6 +48,20 @@ public class HrController {
             @Valid @RequestBody ScheduleInterviewRequest request) {
         InterviewResponse response = interviewService.scheduleInterview(applicationId, request);
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Proxy to external AI service to generate job description, qualifications etc.
+     */
+    @PostMapping("/generate-jd")
+    public ResponseEntity<GenerateJdResponse> generateJobDescription(@Valid @RequestBody GenerateJdRequest request) {
+        try {
+            GenerateJdResponse response = restTemplate.postForObject(
+                    "http://127.0.0.1:8000/api/generate-jd", request, GenerateJdResponse.class);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            throw new BadRequestException("Failed to generate job description from AI service: " + e.getMessage());
+        }
     }
 
     /**

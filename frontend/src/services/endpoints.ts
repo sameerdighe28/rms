@@ -26,6 +26,7 @@ export const cooApi = {
 
 // ── HR ──
 export const hrApi = {
+  generateJd: (data: { role: string; points: string[] }) => api.post<T.GenerateJdResponse>('/hr/generate-jd', data),
   postJob: (data: T.PostJobRequest) => api.post<T.JobResponse>('/hr/jobs', data),
   getMyJobs: () => api.get<T.JobResponse[]>('/hr/jobs'),
   getJobApplications: (jobId: string) => api.get<T.JobApplicationResponse[]>(`/hr/jobs/${jobId}/applications`),
